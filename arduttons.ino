@@ -11,8 +11,10 @@
 
 //
 const int pinc = 4;
-const int pins[pinc] = {5,6,7,8}; //physical to logical pin
+const int pins[pinc] = {5,6,7,8}; //physical to logical pin address
 const int eeprom[pinc] = {0,1,2,3}; //pin address in eeprom
+
+volatile int pineepromstate[pinc] = {0,0,0,0};
 volatile int pinhardstate[pinc] = {0,0,0,0};
 volatile int pinsoftstate[pinc] = {0,0,0,0};
 volatile unsigned long pintime[pinc] = {0,0,0,0};
@@ -40,6 +42,8 @@ void timerIsr()
       //
          pinhardstate[i] = 1;
          pinsoftstate[i] = 1;
+         pineepromstate[i] = 1;
+         EEPROM.write(eeprom[i], 1);
          pintime[i] = millis();
          }
       else 
@@ -56,10 +60,7 @@ void timerIsr()
 // the setup routine runs once when you press reset:
 void setup() 
 {                
-   // initialize the digital pin as an output.
-   //pinMode(led, OUTPUT);
-
-   // initialise to internal 20Mom rezister
+   // initialise to internal 20Mom resistor
    for (int i = 0; i < pinc; i++)
       {
    //
@@ -67,8 +68,15 @@ void setup()
       digitalWrite(pins[i], HIGH);
       }
 
+   //eeprom read
+   for (int i = 0; i < pinc; i++)
+      {
    //
-   Timer1.initialize(2000); // 500Hz // set a timer of length 100000 microseconds (or 0.1 sec - or 10Hz => the led will blink 5 times, 5 cycles of on-and-off, per second)
+      pineepromstate[i] = EEPROM.read(eeprom[i]);
+      }
+
+   //
+   Timer1.initialize(100000); // 10Hz // set a timer of length 100000 microseconds (or 0.1 sec - or 10Hz)
    Timer1.attachInterrupt( timerIsr );
 
    //Start up the serial port
@@ -83,39 +91,27 @@ void setup()
 void loop() 
 {
 //   
-   //int ledstate = 0;
    for (int i = 0; i < pinc; i++)
       {
    //
-      //if (pinsoftstate[i]==1) ledstate = 1;
       //анализ pinsoftstate? без pinreport? где сообщать клиенту?
       if (pinhardstate[i] == 1 && pinsoftstate[i]==1 && pinreport[i]==0)
          {
       //
-         if (pinreport[i]==0)
-            {
-         //
-            //Serial.println();
-            //Serial.print("pin down["); Serial.print(i, DEC); Serial.print("]");
-            server.println();
-            server.print("pin down["); server.print(i, DEC); server.print("]");
+         server.println();
+         server.print("pin down["); server.print(i, DEC); server.print("]");
             
-            pinreport[i] = 1;
-            }
+         pinreport[i] = 1;
          }
       else
          if (pinhardstate[i] == 0 && pinsoftstate[i]==1 && pinreport[i]==1)
             {
          //
-            //Serial.println();
-            //Serial.print("pintime["); Serial.print(i, DEC); Serial.print("]=");
-            //Serial.println(pintime[i], DEC);
             server.println();
             server.print("pintime["); server.print(i, DEC); server.print("]="); server.print(pintime[i], DEC);
             
             pinsoftstate[i] = 0;
             pinreport[i] = 0;
-            //digitalWrite(led, HIGH);   delay(200);    digitalWrite(led, LOW);   delay(200);
             }
       }
 }
