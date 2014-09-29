@@ -98,7 +98,7 @@ char getstatus()
 //
    char result = 0;
    for (int i = 0; i < pinc; i++)
-      if (pineepromstate[i] == 1) result &= 1 << i;
+      if (pineepromstate[i] == 1) result |= 1 << i;
    return result;
 }
 
