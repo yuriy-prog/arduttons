@@ -138,7 +138,7 @@ void loop()
          if (cmd & TSTMODE)
             {
          //
-            cmd &= GETSTAT;
+            cmd |= GETSTAT;
             }
          //else
          if (cmd & DORESET)
