@@ -1,0 +1,22 @@
+Arduttons project.
+
+1. Arduino controlled pressing buttons and send it via ethernet.
+2. Arduino accept commands:
+   status  - put status byte
+   reset   - reset pressed buttons and transition to watchman mode
+   testing - transition to testing mode until reset
+
+all command and status is one byte
+ 7 6 5 4 3 2 1 0
+-----------------
+| | | | | | | | |
+-----------------
+ | | | | | | | |
+ | | | | | | | -- press button 1
+ | | | | | | ---- press button 2 
+ | | | | | ------ press button 3
+ | | | | -------- press button 4
+ | | | ---------- transition to test mode
+ | | ------------ do reset
+ | -------------- get status
+ ---------------- (free)
