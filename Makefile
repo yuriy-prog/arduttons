@@ -1,6 +1,9 @@
-CC = clang++ --std=c++11 -Wno-deprecated -I/usr/local/include
+CC = clang++ --std=c++11 -Wno-deprecated
 
 all: arduttons
+
+clean:
+	rm *.o *~
 
 toptparser.o: toptparser.h toptparser.cc
 	$(CC) $(CFLAGS) -c toptparser.cc -o toptparser.o

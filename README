@@ -4,7 +4,7 @@ Arduttons project.
 2. Arduino accept commands:
    status  - put status byte
    reset   - reset pressed buttons and transition to watchman mode
-   testing - transition to testing mode until reset
+   testing - transition to testing mode until reset and until 5 min
 
 all command and status is one byte
  7 6 5 4 3 2 1 0
@@ -19,4 +19,4 @@ all command and status is one byte
  | | | ---------- transition to test mode
  | | ------------ do reset
  | -------------- get status
- ---------------- (free)
+ ---------------- (free - sign bit)

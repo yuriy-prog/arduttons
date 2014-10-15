@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/param.h>
 
 #include "toptparser.h"
 
@@ -18,6 +20,14 @@ void daemon(lstring params)
 {
 //
    cout << "enter to daemon" << endl;
+   char cwd[MAXPATHLEN];
+   if (getcwd(cwd, MAXPATHLEN) == NULL)
+      {
+   //
+      cerr << "error: getcwd" << endl;
+      exit(1);
+      }
+   cout << "cwd=" << cwd << endl;
 }
 
 //
@@ -64,5 +74,6 @@ int main(int argc, char *argv[])
    if ( clp.parse(argc-1, argv+1) ) clp.run();
    else clp.printusage();
 
+   cout << "argv[0]=" << argv[0] << endl;
    return 0;
 }
