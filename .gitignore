@@ -1,0 +1,6 @@
+arduttons
+*.o
+sms.db
+*.pyc
+*~
+*.bak
