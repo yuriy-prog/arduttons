@@ -25,7 +25,7 @@ char cliin=0, cliout=0;
 void die(const char * msg)
 {
 //
-   cerr << "error: " << msg << endl;
+   perror(msg);
    exit(1);
 }
 
@@ -35,25 +35,38 @@ void get_command_from_cli(int sock)
 //
    socklen_t addrlc;
    sockaddr_un addrc;
+   addrlc = sizeof(sockaddr_un);
+   memset(&addrc, 0, addrlc);
+
    int conn;
 
-   conn = accept(sock, (struct sockaddr*) &addrc, &addrlc);
-   if (conn < 0) die("accept");
-
-   char buf; //buf[1024]
-   int r = read(conn, &buf, sizeof(buf));
-   if (r < 0) die("read");
-   if (r != 1) die("read1");
-   switch(buf)
+   while ((conn = accept(sock, (struct sockaddr*) &addrc, &addrlc)) >= 0)
       {
    //
-      case TSTMODE: cout << "get TSTMODE" << endl; break;
-      case DORESET: cout << "get DORESET" << endl; break;
-      case GETSTAT: cout << "get GETSTAT" << endl; break;
-      default:      cout << "get fail byte" << endl;
+      char buf; //buf[1024]
+      int r = read(conn, &buf, sizeof(buf));
+      if (r < 0) die("read");
+      if (r != 1) die("read1");
+      switch(buf)
+         {
+      //
+         case TSTMODE: buf = DORESET; break;
+         case DORESET: buf = GETSTAT; break;
+         case GETSTAT: buf = TSTMODE; break;
+         default:      buf = 0;
+         }
+
+      int w = write(conn, &buf, sizeof(buf));
+      if (w < 0) die("write");
+      if (w != 1) die("write1");
+
+      close(conn);
+      addrlc = sizeof(sockaddr_un);
+      memset(&addrc, 0, addrlc);
       }
 
-   close(conn);
+   //
+   if (conn < 0) die("accept");
 }
 
 //
@@ -85,9 +98,9 @@ void daemon(lstring params)
    if (bind(sock, (struct sockaddr*) &addrs, addrls)) die("bind");
    if (listen(sock, 1)) die("listen");
 
-   //if (daemon(0,0) == -1) die("daemon");
-
-   get_command_from_cli(sock);
+   if (daemon(0,1) == -1) die("daemon");
+   thread t1(bind(get_command_from_cli,sock));
+   t1.join();
 }
 
 //
@@ -120,6 +133,20 @@ void reset(lstring params)
    int w = write(sock, &buf, sizeof(buf));
    if (w < 0) die("write");
    if (w != 1) die("write1");
+
+   int r = read(sock, &buf, sizeof(buf));
+   if (r < 0) die("read");
+   if (r != 1) die("read1");
+   switch(buf)
+      {
+   //
+      case TSTMODE: cout << "get TSTMODE" << endl; break;
+      case DORESET: cout << "get DORESET" << endl; break;
+      case GETSTAT: cout << "get GETSTAT" << endl; break;
+      default:      cout << "get fail byte" << endl;
+                    exit(1);
+      }
+
    close(sock);
 }
 
