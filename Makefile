@@ -1,4 +1,8 @@
-CC = clang++ --std=c++11 -Wno-deprecated
+ifeq ($(OSTYPE), FreeBSD)
+   CC = g++47 --std=c++11 -Wno-deprecated
+else
+   CC = g++ --std=c++11 -Wno-deprecated
+endif
 
 all: arduttons
 

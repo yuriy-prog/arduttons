@@ -5,6 +5,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <thread>
 
 #include "toptparser.h"
 
@@ -18,12 +19,41 @@ const int TSTMODE = 16;
 const int DORESET = 32;
 const int GETSTAT = 64;
 
+char cliin=0, cliout=0;
+
 //
 void die(const char * msg)
 {
 //
    cerr << "error: " << msg << endl;
    exit(1);
+}
+
+//
+void get_command_from_cli(int sock)
+{
+//
+   socklen_t addrlc;
+   sockaddr_un addrc;
+   int conn;
+
+   conn = accept(sock, (struct sockaddr*) &addrc, &addrlc);
+   if (conn < 0) die("accept");
+
+   char buf; //buf[1024]
+   int r = read(conn, &buf, sizeof(buf));
+   if (r < 0) die("read");
+   if (r != 1) die("read1");
+   switch(buf)
+      {
+   //
+      case TSTMODE: cout << "get TSTMODE" << endl; break;
+      case DORESET: cout << "get DORESET" << endl; break;
+      case GETSTAT: cout << "get GETSTAT" << endl; break;
+      default:      cout << "get fail byte" << endl;
+      }
+
+   close(conn);
 }
 
 //
@@ -42,9 +72,8 @@ void daemon(lstring params)
    if (getcwd(cwd, MAXPATHLEN) == NULL) die("getcwd");
    cout << "cwd=" << cwd << endl;
 
-   //TODO: find exist daemon (exist file socket - bind())
    sockaddr_un addrs;
-   int sock, conn;
+   int sock;
    size_t addrls;
 
    if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) die("socket");
@@ -54,28 +83,11 @@ void daemon(lstring params)
    addrls = sizeof(addrs.sun_family) + strlen(addrs.sun_path);
 
    if (bind(sock, (struct sockaddr*) &addrs, addrls)) die("bind");
-
    if (listen(sock, 1)) die("listen");
 
-   socklen_t addrlc;
-   sockaddr addrc;
-   conn = accept(sock, (struct sockaddr*) &addrc, &addrlc);
-   if (conn < 0) die("accept");
+   //if (daemon(0,0) == -1) die("daemon");
 
-   char buf; //buf[1024]
-   int r = read(conn, &buf, sizeof(buf));
-   if (r < 0) die("read");
-   if (r != 1) die("read1");
-   switch(buf)
-      {
-   //
-      case TSTMODE: cout << "get TSTMODE" << endl; break;
-      case DORESET: cout << "get DORESET" << endl; break;
-      case GETSTAT: cout << "get GETSTAT" << endl; break;
-      default:      cout << "get fail byte" << endl;
-      }
-
-   close(sock);
+   get_command_from_cli(sock);
 }
 
 //
