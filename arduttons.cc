@@ -5,11 +5,18 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <thread>
+#include <string>
 
 #include "toptparser.h"
 
 using namespace std;
+
+string shup("/up.sh");
+string shdown("/down.sh");
+string shtest("/test.sh");
 
 const int BUTTON1 = 1;
 const int BUTTON2 = 2;
@@ -27,6 +34,16 @@ void die(const char * msg)
 //
    perror(msg);
    exit(1);
+}
+
+//
+void check_script(const char * s)
+{
+//
+   struct stat st;
+   if (stat(s, &st) < 0) die(s);
+   if (!(st.st_mode & S_IFREG && st.st_mode & S_IXUSR)) die(s);
+   return;
 }
 
 //
@@ -70,6 +87,36 @@ void get_command_from_cli(int sock)
 }
 
 //
+char get_status_from_daemon(char cmd)
+{
+//
+   sockaddr_un addrc;
+   int sock;
+   socklen_t addrlc;
+
+   if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) die("socket");
+
+   addrc.sun_family = AF_UNIX; //unix domain socket
+   strcpy(addrc.sun_path, "/tmp/sockuttons");
+   addrlc = sizeof(addrc.sun_family) + strlen(addrc.sun_path);
+
+   //TODO: !!! do down.sh ???
+   if (connect(sock, (struct sockaddr*) &addrc, addrlc)) die("connect");
+
+   char buf = cmd;
+   int w = write(sock, &buf, sizeof(buf));
+   if (w < 0) die("write");
+   if (w != 1) die("write1");
+
+   int r = read(sock, &buf, sizeof(buf));
+   if (r < 0) die("read");
+   if (r != 1) die("read1");
+
+   close(sock);
+   return buf;
+}
+
+//
 void printusage(lstring params)
 {
 //
@@ -81,9 +128,6 @@ void daemon(lstring params)
 {
 //
    cout << "enter to daemon" << endl;
-   char cwd[MAXPATHLEN];
-   if (getcwd(cwd, MAXPATHLEN) == NULL) die("getcwd");
-   cout << "cwd=" << cwd << endl;
 
    sockaddr_un addrs;
    int sock;
@@ -98,7 +142,14 @@ void daemon(lstring params)
    if (bind(sock, (struct sockaddr*) &addrs, addrls)) die("bind");
    if (listen(sock, 1)) die("listen");
 
+   //TODO: connect to arduino
+   //TODO: get one status (in thread)
+   //TODO: up.sh if good, else down
    if (daemon(0,1) == -1) die("daemon");
+   //TODO: get status circle
+
+
+   //TODO: get command from command line circle
    thread t1(bind(get_command_from_cli,sock));
    t1.join();
 }
@@ -116,28 +167,7 @@ void reset(lstring params)
 //
    cout << "drop testing mode, reset to watchman mode" << endl;
 
-   //
-   sockaddr_un addrc;
-   int sock;
-   socklen_t addrlc;
-
-   if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) die("socket");
-
-   addrc.sun_family = AF_UNIX; //unix domain socket
-   strcpy(addrc.sun_path, "/tmp/sockuttons");
-   addrlc = sizeof(addrc.sun_family) + strlen(addrc.sun_path);
-
-   if (connect(sock, (struct sockaddr*) &addrc, addrlc)) die("connect");
-
-   char buf = DORESET;
-   int w = write(sock, &buf, sizeof(buf));
-   if (w < 0) die("write");
-   if (w != 1) die("write1");
-
-   int r = read(sock, &buf, sizeof(buf));
-   if (r < 0) die("read");
-   if (r != 1) die("read1");
-   switch(buf)
+   switch(get_status_from_daemon(DORESET))
       {
    //
       case TSTMODE: cout << "get TSTMODE" << endl; break;
@@ -146,8 +176,6 @@ void reset(lstring params)
       default:      cout << "get fail byte" << endl;
                     exit(1);
       }
-
-   close(sock);
 }
 
 //
@@ -155,6 +183,15 @@ void test(lstring params)
 {
 //
    cout << "enter to testing mode" << endl;
+   switch(get_status_from_daemon(TSTMODE))
+      {
+   //
+      case TSTMODE: cout << "get TSTMODE" << endl; break;
+      case DORESET: cout << "get DORESET" << endl; break;
+      case GETSTAT: cout << "get GETSTAT" << endl; break;
+      default:      cout << "get fail byte" << endl;
+                    exit(1);
+      }
 }
 
 //
@@ -162,12 +199,36 @@ void status(lstring params)
 {
 //
    cout << "get status from daemon" << endl;
+   switch(get_status_from_daemon(GETSTAT))
+      {
+   //
+      case TSTMODE: cout << "get TSTMODE" << endl; break;
+      case DORESET: cout << "get DORESET" << endl; break;
+      case GETSTAT: cout << "get GETSTAT" << endl; break;
+      default:      cout << "get fail byte" << endl;
+                    exit(1);
+      }
 }
 
-
+//
 //
 int main(int argc, char *argv[])
 {
+//
+   //TODO: get scripts
+   char cwd[MAXPATHLEN];
+   if (getcwd(cwd, MAXPATHLEN) == NULL) die("getcwd");
+   //cout << "current directory: " << cwd << endl;
+
+   shup = string(cwd) + shup;
+   shdown = string(cwd) + shdown;
+   shtest = string(cwd) + shtest;
+
+   cout << "check scripts:" << endl;
+   cout << shup;   check_script(shup.c_str());   cout << " OK" << endl;
+   cout << shdown; check_script(shdown.c_str()); cout << " OK" << endl;
+   cout << shtest; check_script(shtest.c_str()); cout << " OK" << endl;
+
 //
    TCommandLineParser clp("use: arduttons.exe [-h] [...]\n     (keys case sensitive, NO RECURSE, be accurate)");
    clp.registry("-h",      printusage, 0, "print help");
@@ -180,6 +241,5 @@ int main(int argc, char *argv[])
    if ( clp.parse(argc-1, argv+1) ) clp.run();
    else clp.printusage();
 
-   cout << "argv[0]=" << argv[0] << endl;
    return 0;
 }

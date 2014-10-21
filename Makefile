@@ -1,7 +1,8 @@
 ifeq ($(OSTYPE), FreeBSD)
-   CC = g++47 --std=c++11 -Wno-deprecated
+   CC = g++47 -static -pthread --std=c++11 -Wno-deprecated
+   #trouble by my freebsd? solve later
 else
-   CC = g++ --std=c++11 -Wno-deprecated
+   CC = g++ -pthread --std=c++11 -Wno-deprecated
 endif
 
 all: arduttons
