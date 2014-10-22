@@ -34,6 +34,11 @@ const int TSTMODE = 16;
 const int DORESET = 32;
 const int GETSTAT = 64;
 
+const unsigned long MAX_UNSIGNED_LONG = 4294967295;
+const unsigned long TSTLEN = 5*60*1000;
+unsigned long tstbgn = 0;
+boolean iststmode = false;
+
 //
 EthernetServer server(2323);
 
@@ -93,10 +98,10 @@ void setup()
 }
 
 //
-char getstatus()
+char getstatus(char cmd)
 {
 //
-   char result = 0;
+   char result = cmd;
    for (int i = 0; i < pinc; i++)
       if (pineepromstate[i] == 1) result |= 1 << i;
    return result;
@@ -124,7 +129,7 @@ void loop()
        if (pinreport[i] == 0 && pineepromstate[i]==1)
          {
       //
-         server.write( getstatus() );
+         server.write( getstatus( iststmode ? GETSTAT|TSTMODE : GETSTAT ) );
          pinreport[i] = 1;
          }
       }
@@ -139,11 +144,14 @@ void loop()
             {
          //
             cmd |= GETSTAT;
+            tstbgn = millis();
+            iststmode = true;
             }
          //else
          if (cmd & DORESET)
             {
          //
+            iststmode = false;
             for (int i = 0; i < pinc; i++)
                {
             //
@@ -155,7 +163,19 @@ void loop()
          if (cmd & GETSTAT)
             {
          //
-            server.write(cmd & getstatus());
+            server.write(getstatus( iststmode ? GETSTAT|TSTMODE : GETSTAT ));
             }
          }
+
+   //drop TSTMODE
+   if (iststmode)
+      {
+   //
+      unsigned long currt = millis();
+      unsigned long duration = 0;
+      if (currt < tstbgn) duration = (MAX_UNSIGNED_LONG - tstbgn) + currt;
+      else                duration = currt - tstbgn;
+
+      if (duration > TSTLEN) iststmode = false;
+      }
 }
