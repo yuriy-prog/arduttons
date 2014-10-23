@@ -47,6 +47,31 @@ void check_script(const char * s)
 }
 
 //
+void run_script(const char * s)
+{
+//
+   char* argv[2];
+   argv[1] = nullptr;
+   argv[0] = new char[strlen(s)];
+   strcpy(argv[0], s);
+   execve(s, argv, nullptr);
+   //delete[] argv[0];
+}
+
+//
+void print_cmd(char cmd)
+{
+//
+   if (cmd | TSTMODE) cout << "TEST MODE is active." << endl;
+   if (cmd | DORESET) cout << "DORESET command." << endl;
+   if (cmd | GETSTAT) cout << "GETSTAT command." << endl;
+   if (cmd | BUTTON1) cout << "BUTTON 1 is down." << endl;
+   if (cmd | BUTTON2) cout << "BUTTON 2 is down." << endl;
+   if (cmd | BUTTON3) cout << "BUTTON 3 is down." << endl;
+   if (cmd | BUTTON4) cout << "BUTTON 4 is down." << endl;
+}
+
+//
 void get_command_from_cli(int sock)
 {
 //
@@ -64,6 +89,8 @@ void get_command_from_cli(int sock)
       int r = read(conn, &buf, sizeof(buf));
       if (r < 0) die("read");
       if (r != 1) die("read1");
+
+      //TODO: smart here
       switch(buf)
          {
       //
@@ -100,17 +127,14 @@ char get_status_from_daemon(char cmd)
    strcpy(addrc.sun_path, "/tmp/sockuttons");
    addrlc = sizeof(addrc.sun_family) + strlen(addrc.sun_path);
 
-   //TODO: !!! do down.sh ???
-   if (connect(sock, (struct sockaddr*) &addrc, addrlc)) die("connect");
+   if (connect(sock, (struct sockaddr*) &addrc, addrlc)) run_script(shdown.c_str());//die("connect");
 
    char buf = cmd;
    int w = write(sock, &buf, sizeof(buf));
-   if (w < 0) die("write");
-   if (w != 1) die("write1");
+   if (w <= 0) die("write");
 
    int r = read(sock, &buf, sizeof(buf));
-   if (r < 0) die("read");
-   if (r != 1) die("read1");
+   if (r <= 0) die("read");
 
    close(sock);
    return buf;
@@ -155,27 +179,11 @@ void daemon(lstring params)
 }
 
 //
-void stop(lstring params)
-{
-//
-   cout << "stop daemon" << endl;
-}
-
-//
 void reset(lstring params)
 {
 //
    cout << "drop testing mode, reset to watchman mode" << endl;
-
-   switch(get_status_from_daemon(DORESET))
-      {
-   //
-      case TSTMODE: cout << "get TSTMODE" << endl; break;
-      case DORESET: cout << "get DORESET" << endl; break;
-      case GETSTAT: cout << "get GETSTAT" << endl; break;
-      default:      cout << "get fail byte" << endl;
-                    exit(1);
-      }
+   print_cmd(get_status_from_daemon(DORESET|GETSTAT));
 }
 
 //
@@ -183,15 +191,7 @@ void test(lstring params)
 {
 //
    cout << "enter to testing mode" << endl;
-   switch(get_status_from_daemon(TSTMODE))
-      {
-   //
-      case TSTMODE: cout << "get TSTMODE" << endl; break;
-      case DORESET: cout << "get DORESET" << endl; break;
-      case GETSTAT: cout << "get GETSTAT" << endl; break;
-      default:      cout << "get fail byte" << endl;
-                    exit(1);
-      }
+   print_cmd(get_status_from_daemon(TSTMODE));
 }
 
 //
@@ -199,15 +199,9 @@ void status(lstring params)
 {
 //
    cout << "get status from daemon" << endl;
-   switch(get_status_from_daemon(GETSTAT))
-      {
-   //
-      case TSTMODE: cout << "get TSTMODE" << endl; break;
-      case DORESET: cout << "get DORESET" << endl; break;
-      case GETSTAT: cout << "get GETSTAT" << endl; break;
-      default:      cout << "get fail byte" << endl;
-                    exit(1);
-      }
+   char stat = get_status_from_daemon(GETSTAT);
+   print_cmd(stat);
+   if (stat | TSTMODE && stat|BUTTON1|BUTTON2|BUTTON3|BUTTON4) run_script(shtest.c_str());
 }
 
 //
@@ -233,7 +227,6 @@ int main(int argc, char *argv[])
    TCommandLineParser clp("use: arduttons.exe [-h] [...]\n     (keys case sensitive, NO RECURSE, be accurate)");
    clp.registry("-h",      printusage, 0, "print help");
    clp.registry("-daemon", daemon,     0, "enter to daemon mode (drop other opts)");
-   clp.registry("-stop",   stop,       0, "stop daemon");
    clp.registry("-reset",  reset,      0, "clear testing mode, reset to watchman mode");
    clp.registry("-test",   test,       0, "enter to testing mode");
    clp.registry("-status", status,     0, "get status");
