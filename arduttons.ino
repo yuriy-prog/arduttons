@@ -35,7 +35,7 @@ const int DORESET = 32;
 const int GETSTAT = 64;
 
 const unsigned long MAX_UNSIGNED_LONG = 4294967295;
-const unsigned long TSTLEN = 5*60*1000;
+const unsigned long TSTLEN = 5*60*1000; //5 min
 unsigned long tstbgn = 0;
 boolean iststmode = false;
 
@@ -178,4 +178,7 @@ void loop()
 
       if (duration > TSTLEN) iststmode = false;
       }
+      
+   //... and little sleep
+   delay(50);
 }
