@@ -35,7 +35,7 @@ const int DORESET = 32;
 const int GETSTAT = 64;
 
 const unsigned long MAX_UNSIGNED_LONG = 4294967295;
-const unsigned long TSTLEN = 5*60*1000; //5 min
+const unsigned long TSTLEN = 300000; //5 min
 unsigned long tstbgn = 0;
 boolean iststmode = false;
 
@@ -107,6 +107,18 @@ char getstatus(char cmd)
    return result;
 }
 
+//
+void doreset(void)
+{
+//
+   for (int i = 0; i < pinc; i++)
+      {
+   //
+       EEPROM.write(eeprom[i], 0);
+       pineepromstate[i] = 0;
+       }
+}
+
 // the loop routine runs over and over again forever:
 void loop() 
 {
@@ -143,7 +155,6 @@ void loop()
          if (cmd & TSTMODE)
             {
          //
-            cmd |= GETSTAT;
             tstbgn = millis();
             iststmode = true;
             }
@@ -152,12 +163,7 @@ void loop()
             {
          //
             iststmode = false;
-            for (int i = 0; i < pinc; i++)
-               {
-            //
-               EEPROM.write(eeprom[i], 0);
-               pineepromstate[i] = 0;
-               }
+            doreset();
             }
          //else
          if (cmd & GETSTAT)
@@ -176,7 +182,12 @@ void loop()
       if (currt < tstbgn) duration = (MAX_UNSIGNED_LONG - tstbgn) + currt;
       else                duration = currt - tstbgn;
 
-      if (duration > TSTLEN) iststmode = false;
+      if (duration > TSTLEN)
+         {
+      //
+         iststmode = false;
+         doreset();
+         }
       }
       
    //... and little sleep
