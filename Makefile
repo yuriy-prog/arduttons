@@ -10,6 +10,10 @@ all: arduttons
 clean:
 	rm *.o *~
 
+install: all
+	mkdir -p ~/arduttons
+	cp arduttons test.sh down.sh up.sh ~/arduttons/
+
 toptparser.o: toptparser.h toptparser.cc
 	$(CC) $(CFLAGS) -c toptparser.cc -o toptparser.o
 

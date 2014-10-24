@@ -7,12 +7,17 @@
 #include <sys/un.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <thread>
+#include <mutex>
 #include <string>
 
 #include "toptparser.h"
 
 using namespace std;
+
+mutex m;
 
 string shup("/up.sh");
 string shdown("/down.sh");
@@ -25,6 +30,10 @@ const int BUTTON4 = 8;
 const int TSTMODE = 16;
 const int DORESET = 32;
 const int GETSTAT = 64;
+
+const char * ud_sock  = "/tmp/sockuttons";
+const char * a_ipaddr = "192.168.12.80";
+const unsigned short a_port = 2323;
 
 char cliin=0, cliout=0;
 
@@ -62,13 +71,37 @@ void run_script(const char * s)
 void print_cmd(char cmd)
 {
 //
-   if (cmd | TSTMODE) cout << "TEST MODE is active." << endl;
-   if (cmd | DORESET) cout << "DORESET command." << endl;
-   if (cmd | GETSTAT) cout << "GETSTAT command." << endl;
-   if (cmd | BUTTON1) cout << "BUTTON 1 is down." << endl;
-   if (cmd | BUTTON2) cout << "BUTTON 2 is down." << endl;
-   if (cmd | BUTTON3) cout << "BUTTON 3 is down." << endl;
-   if (cmd | BUTTON4) cout << "BUTTON 4 is down." << endl;
+   cout << "cmd=" << int(cmd) << endl;
+   if (cmd & TSTMODE) cout << "TEST MODE is active." << endl;
+   if (cmd & DORESET) cout << "DORESET command." << endl;
+   if (cmd & GETSTAT) cout << "GETSTAT command." << endl;
+   if (cmd & BUTTON1) cout << "BUTTON 1 is down." << endl;
+   if (cmd & BUTTON2) cout << "BUTTON 2 is down." << endl;
+   if (cmd & BUTTON3) cout << "BUTTON 3 is down." << endl;
+   if (cmd & BUTTON4) cout << "BUTTON 4 is down." << endl;
+}
+
+//
+char get_status_from_a(char cmd)
+{
+//
+   int sock;
+   struct sockaddr_in addr;
+
+   if ((sock=socket(AF_INET, SOCK_STREAM, 0)) < 0) die("socket");
+
+   memset(&addr, 0, sizeof(addr));
+   addr.sin_family = AF_INET;
+   inet_pton(AF_INET, a_ipaddr, &addr.sin_addr);
+   addr.sin_port = htons(a_port);
+
+   if (connect(sock, (struct sockaddr*)&addr, sizeof(addr))) die("connect");
+
+   write(sock, &cmd, 1);
+   read(sock, &cmd, 1);
+
+   close(sock);
+   return cmd;
 }
 
 //
@@ -86,19 +119,14 @@ void get_command_from_cli(int sock)
       {
    //
       char buf; //buf[1024]
+
       int r = read(conn, &buf, sizeof(buf));
       if (r < 0) die("read");
       if (r != 1) die("read1");
 
-      //TODO: smart here
-      switch(buf)
-         {
-      //
-         case TSTMODE: buf = DORESET; break;
-         case DORESET: buf = GETSTAT; break;
-         case GETSTAT: buf = TSTMODE; break;
-         default:      buf = 0;
-         }
+      m.lock();
+      buf = get_status_from_a(buf);
+      m.unlock();
 
       int w = write(conn, &buf, sizeof(buf));
       if (w < 0) die("write");
@@ -124,8 +152,8 @@ char get_status_from_daemon(char cmd)
    if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) die("socket");
 
    addrc.sun_family = AF_UNIX; //unix domain socket
-   strcpy(addrc.sun_path, "/tmp/sockuttons");
-   addrlc = sizeof(addrc.sun_family) + strlen(addrc.sun_path);
+   strcpy(addrc.sun_path, ud_sock);
+   addrlc = sizeof(addrc.sun_family) + strlen(addrc.sun_path) + 1;
 
    if (connect(sock, (struct sockaddr*) &addrc, addrlc)) run_script(shdown.c_str());//die("connect");
 
@@ -160,22 +188,62 @@ void daemon(lstring params)
    if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0) die("socket");
 
    addrs.sun_family = AF_UNIX; //unix domain socket
-   strcpy(addrs.sun_path, "/tmp/sockuttons");
-   addrls = sizeof(addrs.sun_family) + strlen(addrs.sun_path);
+   strcpy(addrs.sun_path, ud_sock);
+   addrls = sizeof(addrs.sun_family) + strlen(addrs.sun_path) + 1;
 
    if (bind(sock, (struct sockaddr*) &addrs, addrls)) die("bind");
    if (listen(sock, 1)) die("listen");
 
    //TODO: connect to arduino
    //TODO: get one status (in thread)
+   m.lock();
+   char res = get_status_from_a(GETSTAT);
+   m.unlock();
    //TODO: up.sh if good, else down
-   if (daemon(0,1) == -1) die("daemon");
-   //TODO: get status circle
+   if (res&TSTMODE) system(shup.c_str());
+   else
+      if (res&(BUTTON1|BUTTON2|BUTTON3|BUTTON4)) run_script(shdown.c_str());
+      else system(shup.c_str());
 
+   if (daemon(0,1) == -1) die("daemon");
 
    //TODO: get command from command line circle
    thread t1(bind(get_command_from_cli,sock));
-   t1.join();
+
+   //TODO: get status circle
+   bool reportTSTMODE = false;
+   while (true)
+      {
+   //
+      m.lock();
+      char res = get_status_from_a(GETSTAT);
+      m.unlock();
+
+      if (!(res&TSTMODE)) reportTSTMODE = false;
+      if (res&(BUTTON1|BUTTON2|BUTTON3|BUTTON4))
+         {
+      //
+         if (res&TSTMODE)
+            {
+         //
+            if (!reportTSTMODE)
+               {
+            //
+               reportTSTMODE = true;
+               system(shtest.c_str());
+               }
+            }
+         else
+            {
+         //
+            run_script(shdown.c_str());
+            //exit(1);
+            }
+         }
+
+      //
+      usleep(1000000);
+      }
 }
 
 //
@@ -183,7 +251,7 @@ void reset(lstring params)
 {
 //
    cout << "drop testing mode, reset to watchman mode" << endl;
-   print_cmd(get_status_from_daemon(DORESET|GETSTAT));
+   print_cmd(get_status_from_a(DORESET|GETSTAT));
 }
 
 //
@@ -201,7 +269,7 @@ void status(lstring params)
    cout << "get status from daemon" << endl;
    char stat = get_status_from_daemon(GETSTAT);
    print_cmd(stat);
-   if (stat | TSTMODE && stat|BUTTON1|BUTTON2|BUTTON3|BUTTON4) run_script(shtest.c_str());
+   //if (stat&TSTMODE && stat&(BUTTON1|BUTTON2|BUTTON3|BUTTON4)) run_script(shtest.c_str());
 }
 
 //
