@@ -205,7 +205,7 @@ void daemon(lstring params)
       if (res&(BUTTON1|BUTTON2|BUTTON3|BUTTON4)) run_script(shdown.c_str());
       else system(shup.c_str());
 
-   if (daemon(0,1) == -1) die("daemon");
+   if (daemon(0,0) == -1) die("daemon");
 
    //TODO: get command from command line circle
    thread t1(bind(get_command_from_cli,sock));
@@ -259,7 +259,7 @@ void test(lstring params)
 {
 //
    cout << "enter to testing mode" << endl;
-   print_cmd(get_status_from_daemon(TSTMODE));
+   print_cmd(get_status_from_daemon(TSTMODE|GETSTAT));
 }
 
 //
