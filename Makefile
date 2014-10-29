@@ -1,8 +1,10 @@
+CC = g++
+CFLAGS += -pthread --std=c++11 -Wno-deprecated
+LIBFLAGS += -static-libstdc++
+
 ifeq ($(OSTYPE), FreeBSD)
-   CC = g++47 -static -pthread --std=c++11 -Wno-deprecated
+   CC = g++47
    #trouble by my freebsd? solve later
-else
-   CC = g++ -pthread --std=c++11 -Wno-deprecated
 endif
 
 all: arduttons
@@ -21,4 +23,4 @@ arduttons.o: arduttons.cc
 	$(CC) $(CFLAGS) -c $< -o $@
 
 arduttons: toptparser.o arduttons.o
-	$(CC) -o arduttons toptparser.o arduttons.o
+	$(CC) $(LIBFLAGS) -o arduttons toptparser.o arduttons.o
