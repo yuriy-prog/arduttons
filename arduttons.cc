@@ -9,15 +9,14 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <thread>
-#include <mutex>
+#include <pthread.h>
 #include <string>
 
 #include "toptparser.h"
 
 using namespace std;
 
-mutex m;
+pthread_mutex_t m;
 
 string shup("/up.sh");
 string shdown("/down.sh");
@@ -32,7 +31,7 @@ const int DORESET = 32;
 const int GETSTAT = 64;
 
 const char * ud_sock  = "/tmp/sockuttons";
-const char * a_ipaddr = "192.168.12.80";
+const char * a_ipaddr = "192.168.10.80";
 const unsigned short a_port = 2323;
 
 char cliin=0, cliout=0;
@@ -60,10 +59,10 @@ void run_script(const char * s)
 {
 //
    char* argv[2];
-   argv[1] = nullptr;
+   argv[1] = NULL;
    argv[0] = new char[strlen(s)];
    strcpy(argv[0], s);
-   execve(s, argv, nullptr);
+   execve(s, argv, NULL);
    //delete[] argv[0];
 }
 
@@ -105,7 +104,7 @@ char get_status_from_a(char cmd)
 }
 
 //
-void get_command_from_cli(int sock)
+void* get_command_from_cli(void* sock)
 {
 //
    socklen_t addrlc;
@@ -115,7 +114,7 @@ void get_command_from_cli(int sock)
 
    int conn;
 
-   while ((conn = accept(sock, (struct sockaddr*) &addrc, &addrlc)) >= 0)
+   while ((conn = accept(*((int*)sock), (struct sockaddr*) &addrc, &addrlc)) >= 0)
       {
    //
       char buf; //buf[1024]
@@ -124,9 +123,9 @@ void get_command_from_cli(int sock)
       if (r < 0) die("read");
       if (r != 1) die("read1");
 
-      m.lock();
+      pthread_mutex_lock(&m);
       buf = get_status_from_a(buf);
-      m.unlock();
+      pthread_mutex_unlock(&m);
 
       int w = write(conn, &buf, sizeof(buf));
       if (w < 0) die("write");
@@ -196,9 +195,9 @@ void daemon(lstring params)
 
    //TODO: connect to arduino
    //TODO: get one status (in thread)
-   m.lock();
+   pthread_mutex_lock(&m);
    char res = get_status_from_a(GETSTAT);
-   m.unlock();
+   pthread_mutex_unlock(&m);
    //TODO: up.sh if good, else down
    if (res&TSTMODE) system(shup.c_str());
    else
@@ -208,16 +207,18 @@ void daemon(lstring params)
    if (daemon(0,0) == -1) die("daemon");
 
    //TODO: get command from command line circle
-   thread t1(bind(get_command_from_cli,sock));
+   //thread t1(bind(get_command_from_cli,sock));
+   pthread_t t1;
+   pthread_create(&t1, NULL, &get_command_from_cli, &sock);
 
    //TODO: get status circle
    bool reportTSTMODE = false;
    while (true)
       {
    //
-      m.lock();
+      pthread_mutex_lock(&m);
       char res = get_status_from_a(GETSTAT);
-      m.unlock();
+      pthread_mutex_unlock(&m);
 
       if (!(res&TSTMODE)) reportTSTMODE = false;
       if (res&(BUTTON1|BUTTON2|BUTTON3|BUTTON4))
@@ -291,6 +292,8 @@ int main(int argc, char *argv[])
    cout << shdown; check_script(shdown.c_str()); cout << " OK" << endl;
    cout << shtest; check_script(shtest.c_str()); cout << " OK" << endl;
 
+   //
+   pthread_mutex_init(&m, NULL);
 //
    TCommandLineParser clp("use: arduttons.exe [-h] [...]\n     (keys case sensitive, NO RECURSE, be accurate)");
    clp.registry("-h",      printusage, 0, "print help");
@@ -302,5 +305,6 @@ int main(int argc, char *argv[])
    if ( clp.parse(argc-1, argv+1) ) clp.run();
    else clp.printusage();
 
+   pthread_mutex_destroy(&m);
    return 0;
 }

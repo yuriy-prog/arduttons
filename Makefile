@@ -1,10 +1,12 @@
 CC = g++
-CFLAGS += -pthread --std=c++11 -Wno-deprecated
-LIBFLAGS += -static-libstdc++
+CFLAGS += -pthread -Wno-deprecated
+LIBFLAGS += -pthread -static
+#LIBFLAGS += -static-libstdc++
 
 ifeq ($(OSTYPE), FreeBSD)
    #trouble by my freebsd? solve later
-   CC = g++48
+   #CC = g++48
+   CC = g++
    LIBFLAGS += -static
 endif
 

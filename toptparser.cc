@@ -4,18 +4,18 @@
 void TCommandLineParser::run()
 {
 //
-   for (auto a : args) if (a.isset) a.func(a.vals);
+   for (Targs::iterator a=args.begin(); a != args.end(); a++) if (a->isset) a->func(a->vals);
 }
 
 //
 void TCommandLineParser::print()
 {
 //
-   for( auto k : args ) if (k.isset)
+   for( Targs::iterator k=args.begin(); k != args.end(); k++ ) if (k->isset)
       {
    //
-      cout << k.key ;
-      for ( auto v : k.vals ) cout << " " << v;
+      cout << k->key ;
+      for ( lstring::iterator v=k->vals.begin(); v != k->vals.end(); v++ ) cout << " " << *v;
       cout << endl;
       }
 }
@@ -25,12 +25,12 @@ void TCommandLineParser::printusage()
 {
 //
    cout << usage << endl;
-   for (auto i : args) 
+   for (Targs::iterator i=args.begin(); i != args.end(); i++)
       {
    //
-      cout << "\t" << i.key;
-      for (int v = 0; v < i.nvals; v++) cout << " PARAM";
-      cout << " " << i.help << endl;
+      cout << "\t" << i->key;
+      for (int v = 0; v < i->nvals; v++) cout << " PARAM";
+      cout << " " << i->help << endl;
       }
 }
 
@@ -104,12 +104,12 @@ bool TCommandLineParser::addkeys(lstring keys)
    int argc = keys.size();
    char ** argv = new char*[argc];
    int i = 0;
-   for (auto k : keys)
+   for (lstring::iterator k=keys.begin(); k != keys.end(); k++)
       {
    //
-      argv[i] = new char[k.size()+1];
-      memset(argv[i], 0, k.size()+1);
-      strncpy(argv[i], k.c_str(), k.size()+1);
+      argv[i] = new char[k->size()+1];
+      memset(argv[i], 0, k->size()+1);
+      strncpy(argv[i], k->c_str(), k->size()+1);
       i++;
       }
    bool result = parse(argc, argv);
