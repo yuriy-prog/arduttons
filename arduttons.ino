@@ -19,10 +19,10 @@ volatile int pinsoftstate[pinc] = {0,0,0,0};
 int pineepromstate[pinc] = {0,0,0,0};
 int pinreport[pinc] = {0,0,0,0};
 
-byte mac[] = {0x02, 0x80, 0xC2, 0x00, 0x00, 0x01};
-byte ip[] = {192, 168, 12, 80};
-byte netdns[] = {192, 168, 12, 1};
-byte gateway[] = {192, 168, 12, 1};
+byte mac[] = {0x02, 0x80, 0xC2, 0x00, 0x00, 0x02};
+byte ip[] = {192, 168, 52, 90};
+byte netdns[] = {192, 168, 52, 1};
+byte gateway[] = {192, 168, 52, 1};
 byte mask[] = {255, 255, 255, 0};
 
 //
